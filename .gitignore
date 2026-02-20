@@ -1,0 +1,23 @@
+# Visual Studio cache (must ignore)
+.vs/
+
+# Build folders
+x64/
+x86/
+Debug/
+Release/
+out/
+build/
+CMakeFiles/
+CMakeCache.txt
+
+# VS database / cache
+*.VC.db
+*.VC.VC.opendb
+ipch/
+
+# User settings
+*.user
+*.suo
+*.vcxproj.user
+.vscode/
