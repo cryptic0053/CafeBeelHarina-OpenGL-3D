@@ -4,6 +4,22 @@ out vec4 FragColor;
 in vec2 TexCoord;
 in vec3 FragPos;
 in vec4 VertexColor;   // used when uComputeMode == 0
+in vec3 Normal;
+
+uniform vec3 viewPos;
+uniform bool masterLightOn;
+uniform bool dirLightOn;
+uniform bool pointLightOn;
+uniform bool spotLightOn;
+uniform bool ambientOn;
+uniform bool diffuseOn;
+uniform bool specularOn;
+uniform bool emissiveOn;
+
+uniform vec3 dirLightDir;
+uniform vec3 spotLightDir;
+uniform vec3 pointLightPositions[4];
+uniform bool uIsEmissiveObject;
 
 uniform vec4 baseColor;
 uniform bool isWater;
@@ -21,9 +37,9 @@ void main()
 {
     float dist = abs(FragPos.z);
 
-    // -------------------------
-    // 1) SKY (unchanged style)
-    // -------------------------
+    
+    // 1) SKY
+    
     if (isSky)
     {
         float h = FragPos.y;
@@ -34,9 +50,9 @@ void main()
         return;
     }
 
-    // -------------------------
-    // 2) WATER (unchanged style)
-    // -------------------------
+    
+    // 2) WATER
+    
     if (isWater)
     {
         vec3 result = baseColor.rgb;
@@ -58,13 +74,11 @@ void main()
         return;
     }
 
-    // =========================================================
-    // 3) NORMAL OBJECTS (Texture Mapping Assignment)
-    // =========================================================
+    // 3) NORMAL OBJECTS
 
     vec4 finalCol;
 
-    // A) Vertex computed mode (color already computed in vertex shader)
+    // A) Vertex computed mode
     if (uComputeMode == 0)
     {
         finalCol = VertexColor;
@@ -84,13 +98,80 @@ void main()
             finalCol = texC;                                // simple texture only
     }
 
-    // -------------------------
-    // 4) Object fog + distance darkening (keep your look)
-    // -------------------------
+    
+    // 4) Object fog + distance darkening
+    
     vec3 result = finalCol.rgb;
 
+    // 3.5) BLINN-PHONG LIGHTING ENGINE
+    if (masterLightOn) 
+    {
+        vec3 norm = normalize(Normal);
+        vec3 viewDir = normalize(viewPos - FragPos);
+        vec3 lightingAcc = vec3(0.0);
+
+        if (ambientOn) lightingAcc += 0.25 * finalCol.rgb;
+
+        // A) Directional Light (The Sun / Moon)
+        if (dirLightOn) {
+            vec3 lightDir = normalize(-dirLightDir);
+            float diff = max(dot(norm, lightDir), 0.0);
+            vec3 diffuseOutput = (diffuseOn) ? (diff * vec3(0.8) * finalCol.rgb) : vec3(0.0);
+            
+            vec3 halfwayDir = normalize(lightDir + viewDir);  
+            float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
+            vec3 specularOutput = (specularOn) ? (spec * vec3(0.2)) : vec3(0.0);
+            
+            lightingAcc += (diffuseOutput + specularOutput);
+        }
+
+        // B) Point Lights (Canopy Bulbs)
+        if (pointLightOn) {
+            for(int i = 0; i < 4; i++) {
+                vec3 lightDir = normalize(pointLightPositions[i] - FragPos);
+                float distance = length(pointLightPositions[i] - FragPos);
+                float attenuation = 1.0 / (1.0 + 0.045 * distance + 0.0075 * (distance * distance));    
+                
+                float diff = max(dot(norm, lightDir), 0.0);
+                vec3 diffuseOutput = (diffuseOn) ? (diff * vec3(0.9, 0.8, 0.4) * finalCol.rgb) : vec3(0.0);
+                
+                vec3 halfwayDir = normalize(lightDir + viewDir);  
+                float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
+                vec3 specularOutput = (specularOn) ? (spec * vec3(0.4, 0.35, 0.1)) : vec3(0.0);
+                
+                lightingAcc += (diffuseOutput + specularOutput) * attenuation;
+            }
+        }
+
+        // C) Spot Light (Flashlight from Camera)
+        if (spotLightOn) {
+            vec3 lightDir = normalize(viewPos - FragPos); 
+            float theta = dot(lightDir, normalize(-spotLightDir)); 
+            
+            if(theta > cos(radians(12.5))) 
+            {
+                float diff = max(dot(norm, lightDir), 0.0);
+                vec3 diffuseOutput = (diffuseOn) ? (diff * vec3(1.0) * finalCol.rgb) : vec3(0.0);
+                
+                vec3 halfwayDir = normalize(lightDir + viewDir);  
+                float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
+                vec3 specularOutput = (specularOn) ? (spec * vec3(0.5)) : vec3(0.0);
+                
+                lightingAcc += (diffuseOutput + specularOutput);
+            }
+        }
+
+        // D) Emissive
+        if (emissiveOn && uIsEmissiveObject) {
+            lightingAcc += finalCol.rgb * 0.4;
+        }
+
+        result = lightingAcc;
+    }
+
+    // 4) Object fog + preserve old distance styling if lights are off
     float darkness = clamp((dist - 10.0) / 70.0, 0.0, 0.35);
-    result *= (1.0 - darkness);
+    if (!masterLightOn) result *= (1.0 - darkness);
 
     if (dist > 55.0) {
         float fog = clamp((dist - 55.0) / 25.0, 0.0, 1.0);

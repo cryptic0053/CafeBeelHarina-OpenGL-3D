@@ -9,7 +9,9 @@ enum Camera_Movement {
     FORWARD,
     BACKWARD,
     LEFT,
-    RIGHT
+    RIGHT,
+    UP,
+    DOWN
 };
 
 const float YAW = -90.0f;
@@ -28,6 +30,7 @@ public:
     glm::vec3 WorldUp;
     float Yaw;
     float Pitch;
+    float Roll;
     float MovementSpeed;
     float MouseSensitivity;
     float Zoom;
@@ -38,6 +41,7 @@ public:
         WorldUp = up;
         Yaw = yaw;
         Pitch = pitch;
+        Roll = 0.0f;
         updateCameraVectors();
     }
 
@@ -57,9 +61,10 @@ public:
             Position -= Right * velocity;
         if (direction == RIGHT)
             Position += Right * velocity;
-        
-        // Pin to deck height if desired, but FPS usually allows flying in labs
-        // Position.y = 1.0f; 
+        if (direction == UP)
+            Position += WorldUp * velocity;
+        if (direction == DOWN)
+            Position -= WorldUp * velocity;
     }
 
     void ProcessMouseMovement(float xoffset, float yoffset, GLboolean constrainPitch = true)
@@ -78,6 +83,18 @@ public:
         updateCameraVectors();
     }
 
+    void ProcessRotationKeys(float dpitch, float dyaw, float droll, float deltaTime)
+    {
+        float rotVelocity = 45.0f * deltaTime;
+        Pitch += dpitch * rotVelocity;
+        Yaw += dyaw * rotVelocity;
+        Roll += droll * rotVelocity;
+
+        if (Pitch > 89.0f) Pitch = 89.0f;
+        if (Pitch < -89.0f) Pitch = -89.0f;
+        updateCameraVectors();
+    }
+
 private:
     void updateCameraVectors()
     {
@@ -86,8 +103,13 @@ private:
         front.y = sin(glm::radians(Pitch));
         front.z = sin(glm::radians(Yaw)) * cos(glm::radians(Pitch));
         Front = glm::normalize(front);
-        Right = glm::normalize(glm::cross(Front, WorldUp));
-        Up = glm::normalize(glm::cross(Right, Front));
+
+        glm::vec3 standardRight = glm::normalize(glm::cross(Front, WorldUp));
+        glm::vec3 standardUp    = glm::normalize(glm::cross(standardRight, Front));
+
+        glm::mat4 rollMatrix = glm::rotate(glm::mat4(1.0f), glm::radians(Roll), Front);
+        Right = glm::normalize(glm::vec3(rollMatrix * glm::vec4(standardRight, 0.0f)));
+        Up    = glm::normalize(glm::vec3(rollMatrix * glm::vec4(standardUp, 0.0f)));
     }
 };
 #endif

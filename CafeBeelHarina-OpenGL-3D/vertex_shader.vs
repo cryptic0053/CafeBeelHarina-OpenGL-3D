@@ -6,7 +6,8 @@ layout (location = 2) in vec2 aTexCoord;
 
 out vec2 TexCoord;
 out vec3 FragPos;
-out vec4 VertexColor;   // ✅ REQUIRED (matches fragment shader)
+out vec4 VertexColor;  
+out vec3 Normal;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -15,7 +16,7 @@ uniform mat4 projection;
 uniform bool isWater;
 uniform float time;
 
-// ✅ texture assignment controls
+
 uniform vec4 baseColor;
 uniform bool uUseTexture;
 uniform bool uBlendWithColor;
@@ -36,11 +37,12 @@ void main()
     vec4 worldPos = model * vec4(pos, 1.0);
     FragPos = worldPos.xyz;
     TexCoord = aTexCoord;
+    Normal = mat3(transpose(inverse(model))) * aNormal;
 
     // Default
     VertexColor = baseColor;
 
-    // ✅ If mode is vertex-compute, compute final color here
+    
     if (uComputeMode == 0)
     {
         vec4 texC = vec4(1.0);
