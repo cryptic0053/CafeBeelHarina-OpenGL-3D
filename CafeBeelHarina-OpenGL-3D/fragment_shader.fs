@@ -17,6 +17,7 @@ uniform bool specularOn;
 uniform bool emissiveOn;
 
 uniform vec3 dirLightDir;
+uniform vec3 dirLightColor;  // Dynamic sun color
 uniform vec3 spotLightDir;
 uniform vec3 pointLightPositions[4];
 uniform bool uIsEmissiveObject;
@@ -116,7 +117,7 @@ void main()
         if (dirLightOn) {
             vec3 lightDir = normalize(-dirLightDir);
             float diff = max(dot(norm, lightDir), 0.0);
-            vec3 diffuseOutput = (diffuseOn) ? (diff * vec3(0.8) * finalCol.rgb) : vec3(0.0);
+            vec3 diffuseOutput = (diffuseOn) ? (diff * dirLightColor * finalCol.rgb) : vec3(0.0);
             
             vec3 halfwayDir = normalize(lightDir + viewDir);  
             float spec = pow(max(dot(norm, halfwayDir), 0.0), 32.0);
